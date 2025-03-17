@@ -1,0 +1,8 @@
+stable-baselines3[extra]
+gymnasium[atari]
+gymnasium[classic-control]
+gymnasium[accept-rom-license]
+torch
+torchvision
+moviepy
+numpy
