@@ -8,7 +8,6 @@ if __name__ == "__main__":
         num_frames = 5
     )
     observations, info = env.reset()
-    print(observations)
     env = gym.wrappers.HumanRendering(env)
     done = False
 
