@@ -2,9 +2,8 @@ import torch
 import torch.nn as nn
 
 class my_model(nn.Module):
-    def __init__(self, num_frames: int, num_actions: int, device: str, *args, **kwargs):
+    def __init__(self, num_frames: int, num_actions: int, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.device = device
         self.convolutions = nn.Sequential(
             nn.Conv2d(in_channels=num_frames, out_channels=32, kernel_size=8, stride=4),
             nn.ReLU(),
@@ -25,10 +24,8 @@ class my_model(nn.Module):
         )
 
     def forward(self, observation_tensors):
-        observation_tensors = torch.tensor(observation_tensors, device=self.device, dtype=torch.float)
+        observation_tensors = torch.tensor(observation_tensors, dtype=torch.float)
         observation_tensors /= 255.0
-        print(observation_tensors.shape)
         result = self.convolutions(observation_tensors)
-        print(result.shape)
         result = self.fully_connected_nn(result)
         return result

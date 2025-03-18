@@ -4,6 +4,7 @@ from wrappers import MultiFrame, Atari_img_to_torch
 from stable_baselines3.common import atari_wrappers
 import numpy as np
 from random import sample
+import torch
 
 def create_env(env_name: str, num_frames: int, **kwargs):
     env = gym.make(env_name, **kwargs)
@@ -18,15 +19,17 @@ def create_env(env_name: str, num_frames: int, **kwargs):
 
 
 class experience:
-    def __init__(self, max_num_experiences):
+    def __init__(self, max_num_experiences, device: str):
         self.max_num_experiences = max_num_experiences
         self.memories = []
+        self.device = device
 
     def add_memory(self, new_memory):
         if len(self.memories) >= self.max_num_experiences:
             del self.memories[0]
+        new_memory = torch.tensor(new_memory, device=self.device, dtype=torch.float)
         self.memories.append(new_memory)
 
     def sample_memory(self, num_samples):
         num_samples = min(num_samples, len(self.memories))
-        return np.concat(sample(self.memories, num_samples), axis=0)
+        return torch.concat(sample(self.memories, num_samples), axis=0)
