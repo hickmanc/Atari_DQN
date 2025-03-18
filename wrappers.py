@@ -49,3 +49,4 @@ class MultiFrame(gym.ObservationWrapper):
     def observation(self, observation):
         self.frames.append(observation)
         return np.concatenate(self.frames)
+    
