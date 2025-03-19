@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-class my_model(nn.Module):
+class DQN(nn.Module):
     def __init__(self, num_frames: int, num_actions: int, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.convolutions = nn.Sequential(
