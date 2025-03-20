@@ -38,12 +38,21 @@ if __name__ == "__main__":
     # my_experience = experience(max_num_experiences=int(1e2), device=device)
     done = False
 
-
+    frames_played = 0
     while not done:
         my_agent.play_step()
         random_experiences = my_agent.experiences.sample_memory(2)
-        print(random_experiences)
-        my_agent.calc_loss(random_experiences)
+        # why does commenting out this line lead to such a speed boost????
+        #print(random_experiences)
+        my_agent.lead_net.zero_grad()
+        # performs forward pass for prediction and calculates loss
+        loss = my_agent.calc_loss(random_experiences)
+        loss.backward()
+        my_agent.optimizer.step()
+        if (frames_played % sync_interval) == 0:
+            my_agent.stable_net.load_state_dict(my_agent.lead_net.state_dict())
+        frames_played += 1
+        print(frames_played)
         # observations = np.expand_dims(observations, axis=0)
         # q_value_predictions = lead_net(observations)
         #my_experience.add_memory(observations)

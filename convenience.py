@@ -186,8 +186,7 @@ class Agent:
             # this is guaranteed to be true beacuse the reward after done is 0
             next_state_predicted_values[experience_done] = 0.0
             next_state_predicted_values = next_state_predicted_values.detach()
-        print(rewards)
-        print(next_state_predicted_values)
+
         expected_q_values = rewards + next_state_predicted_values * self.bellman_discout
         return self.loss_fn(chosen_q_values, expected_q_values)
         
