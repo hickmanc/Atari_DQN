@@ -14,7 +14,7 @@ sync_interval = int(1e3)
 exploration_prob_decay = int(15e4)
 exploration_prob_start = 1.0
 exploration_prob_end = 0.01
-max_experience_memory = int(1e2)
+max_experience_memory = int(1e4)
 
 
 if __name__ == "__main__":
@@ -39,9 +39,10 @@ if __name__ == "__main__":
     done = False
 
     frames_played = 0
+    total_rewards = []
     while not done:
         my_agent.play_step()
-        random_experiences = my_agent.experiences.sample_memory(2)
+        random_experiences = my_agent.experiences.sample_memory(batch_size)
         # why does commenting out this line lead to such a speed boost????
         #print(random_experiences)
         my_agent.lead_net.zero_grad()
@@ -49,6 +50,8 @@ if __name__ == "__main__":
         loss = my_agent.calc_loss(random_experiences)
         loss.backward()
         my_agent.optimizer.step()
+        total_rewards.append(my_agent.experiences.memories[-1].reward)
+        print(np.mean(total_rewards[-100:]))
         if (frames_played % sync_interval) == 0:
             my_agent.stable_net.load_state_dict(my_agent.lead_net.state_dict())
         frames_played += 1
