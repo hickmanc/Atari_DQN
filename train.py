@@ -3,18 +3,19 @@ import numpy as np
 import torch
 from convenience import create_env, Agent, individual_experience
 
-env_name = "ALE/Pong-v5"
+env_name = "PongNoFrameskip-v4"
 device = "mps"
 frames_per_experience = 4
-experiences_per_batch = int(1e0)
 gamma = 0.99
 batch_size = 32
 learning_rate = 1e-4
 sync_interval = int(1e3)
-exploration_prob_decay = int(15e4)
-exploration_prob_start = 1.0
-exploration_prob_end = 0.01
 max_experience_memory = int(1e4)
+# max_experience_memory = 5
+# episolon is exploration probability
+epsilon_decay_last_frame = int(15e4)
+epsilon_start = 1.0
+epsilon_final = 0.01
 
 
 if __name__ == "__main__":
@@ -27,21 +28,23 @@ if __name__ == "__main__":
         env,
         frames_per_experience=frames_per_experience,
         device=device,
-        exploration_prob_start=exploration_prob_start,
-        exploration_prob_end=exploration_prob_end,
-        exploration_prob_decay=exploration_prob_decay,
+        exploration_prob_start=epsilon_start,
+        exploration_prob_end=epsilon_final,
+        exploration_prob_decay=epsilon_decay_last_frame,
         learning_rate=learning_rate,
         max_experience_memory=max_experience_memory,
         bellman_discount=gamma
     )
-    env = gym.wrappers.HumanRendering(env)
-    # my_experience = experience(max_num_experiences=int(1e2), device=device)
-    done = False
+    #env = gym.wrappers.HumanRendering(env)
 
-    frames_played = 0
     total_rewards = []
-    while not done:
-        my_agent.play_step()
+    while True:
+        reward = my_agent.play_step()
+        if reward is not None:
+            total_rewards.append(reward)
+            mean_reward = np.mean(total_rewards[-100:])
+            print(mean_reward)
+            print(my_agent.current_exploration_prob)
         random_experiences = my_agent.experiences.sample_memory(batch_size)
         # why does commenting out this line lead to such a speed boost????
         #print(random_experiences)
@@ -50,15 +53,6 @@ if __name__ == "__main__":
         loss = my_agent.calc_loss(random_experiences)
         loss.backward()
         my_agent.optimizer.step()
-        total_rewards.append(my_agent.experiences.memories[-1].reward)
-        print(np.mean(total_rewards[-100:]))
-        if (frames_played % sync_interval) == 0:
+        if (my_agent.num_plays % sync_interval) == 0:
             my_agent.stable_net.load_state_dict(my_agent.lead_net.state_dict())
-        frames_played += 1
-        print(frames_played)
-        # observations = np.expand_dims(observations, axis=0)
-        # q_value_predictions = lead_net(observations)
-        #my_experience.add_memory(observations)
-        #random_experiences = my_experience.sample_memory(num_samples=experiences_per_batch)
-        #print(random_experiences.shape)
 

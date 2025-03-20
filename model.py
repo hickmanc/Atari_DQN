@@ -3,7 +3,7 @@ import torch.nn as nn
 
 class DQN(nn.Module):
     def __init__(self, num_frames: int, num_actions: int, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super(DQN, self).__init__()
         self.convolutions = nn.Sequential(
             nn.Conv2d(in_channels=num_frames, out_channels=32, kernel_size=8, stride=4),
             nn.ReLU(),
@@ -24,7 +24,7 @@ class DQN(nn.Module):
         )
 
     def forward(self, observation_tensors):
-        observation_tensors = torch.tensor(observation_tensors, dtype=torch.float)
+        # observation_tensors = torch.tensor(observation_tensors, dtype=torch.float)
         observation_tensors /= 255.0
         result = self.convolutions(observation_tensors)
         result = self.fully_connected_nn(result)

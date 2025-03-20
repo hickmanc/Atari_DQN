@@ -78,7 +78,6 @@ class Agent:
     ):
         self.env = env
         self.device = device
-        self.experiences = []
         self.state = None
         self.exploration_prob_start = exploration_prob_start
         self.exploration_prob_end = exploration_prob_end
@@ -86,6 +85,7 @@ class Agent:
         self.current_exploration_prob = exploration_prob_start
         self.learning_rate = learning_rate
         self.bellman_discout = bellman_discount
+        self.num_plays = 0
         self.loss_fn = torch.nn.MSELoss()
         self.experiences = experiences_holder(
             max_num_experiences=max_experience_memory
@@ -113,42 +113,33 @@ class Agent:
     def reset(self):
         self.state, info = self.env.reset()
         self.state = np.expand_dims(self.state, axis=0)
-        self.state = torch.tensor(
-            self.state,
-            device=self.device,
-            dtype=torch.float
-        )
         self.total_reward = 0.0
 
     @torch.no_grad()
     def play_step(self):
+        self.num_plays += 1
         done_reward = None
-        old_state = self.state.clone()
 
         # select the action
         if np.random.random() < self.current_exploration_prob:
             action = self.env.action_space.sample()
         else:
-            predicted_q_vals = self.lead_net(self.state)
+            state_tensor = torch.from_numpy(self.state).to(dtype=torch.float, device=self.device)
+            predicted_q_vals = self.lead_net(state_tensor)
             _, action = torch.max(predicted_q_vals, dim=1)
             action = int(action.item())
 
+        old_state = self.state.copy()
         # take the action
         self.state, reward, done, truncated, _ = self.env.step(action=action)
         # update the accumulated reward
         self.total_reward += reward
         # make sure the state is the correct shape for batches
         self.state = np.expand_dims(self.state, axis=0)
-        # make sure the state is saved as a tensor
-        self.state = torch.tensor(
-            self.state,
-            device=self.device,
-            dtype=torch.float
-        )
         self.experiences.add_memory(
             individual_experience(
                 starting_state=old_state,
-                resulting_state=self.state.clone(),
+                resulting_state=self.state.copy(),
                 reward=float(reward),
                 action_take=action,
                 done=done
@@ -157,7 +148,7 @@ class Agent:
 
         # update exploration probability
         self.current_exploration_prob = max(
-            self.current_exploration_prob * self.exploration_prob_decay,
+            self.exploration_prob_start - self.num_plays/self.exploration_prob_decay,
             self.exploration_prob_end
         )
 
@@ -168,8 +159,10 @@ class Agent:
     
     # batch is a list of individual_experiences
     def calc_loss(self, batch: list[individual_experience]):
-        starting_states = torch.concat([e.starting_state for e in batch], dim=0)
-        resulting_states = torch.concat([e.resulting_state for e in batch], dim=0)
+        starting_states = np.concat([e.starting_state for e in batch], axis=0)
+        starting_states = torch.from_numpy(starting_states).to(dtype=torch.float, device=self.device)
+        resulting_states = np.concat([e.resulting_state for e in batch], axis=0)
+        resulting_states = torch.from_numpy(resulting_states).to(dtype=torch.float, device=self.device)
         # list of booleans specifying whether the game was done after this experience
         experience_done = [e.done for e in batch]
         chosen_actions = [e.action_take for e in batch]
