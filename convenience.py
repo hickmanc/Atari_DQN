@@ -26,24 +26,6 @@ class individual_experience:
     reward: float
     action_take: int
     done: bool
-
-'''
-class experience:
-    def __init__(self, max_num_experiences, device: str):
-        self.max_num_experiences = max_num_experiences
-        self.memories = []
-        self.device = device
-
-    def add_memory(self, new_memory):
-        if len(self.memories) >= self.max_num_experiences:
-            del self.memories[0]
-        new_memory = torch.tensor(new_memory, device=self.device, dtype=torch.float)
-        self.memories.append(new_memory)
-
-    def sample_memory(self, num_samples):
-        num_samples = min(num_samples, len(self.memories))
-        return torch.concat(sample(self.memories, num_samples), axis=0)
-'''
     
 
 class experiences_holder:
@@ -78,6 +60,7 @@ class Agent:
     ):
         self.env = env
         self.device = device
+        self.experiences = []
         self.state = None
         self.exploration_prob_start = exploration_prob_start
         self.exploration_prob_end = exploration_prob_end
@@ -85,7 +68,6 @@ class Agent:
         self.current_exploration_prob = exploration_prob_start
         self.learning_rate = learning_rate
         self.bellman_discout = bellman_discount
-        self.num_plays = 0
         self.loss_fn = torch.nn.MSELoss()
         self.experiences = experiences_holder(
             max_num_experiences=max_experience_memory
@@ -101,85 +83,97 @@ class Agent:
             num_actions=self.env.action_space.n,
             num_frames=frames_per_experience
         ).to(device)
-        self.reset()
+        self._reset()
 
+    def _reset(self):
+        self.state, _ = self.env.reset()
+        self.state = np.expand_dims(self.state, axis=0)
+        self.state = torch.tensor(
+            self.state,
+            device=self.device,
+            dtype=torch.float
+        )
+        self.total_reward = 0.0
 
-
-        # fill replay buffer with experiences
-        while self.experiences.get_num_experiences() < max_experience_memory:
-            self.play_step()
-
-
+    '''
     def reset(self):
         self.state, info = self.env.reset()
         self.state = np.expand_dims(self.state, axis=0)
+        self.state = torch.tensor(
+            self.state,
+            device=self.device,
+            dtype=torch.float
+        )
         self.total_reward = 0.0
+    '''
 
     @torch.no_grad()
     def play_step(self):
-        self.num_plays += 1
         done_reward = None
+        old_state = self.state.clone()
 
         # select the action
+        # print(self.current_exploration_prob)
         if np.random.random() < self.current_exploration_prob:
             action = self.env.action_space.sample()
         else:
-            state_tensor = torch.from_numpy(self.state).to(dtype=torch.float, device=self.device)
-            predicted_q_vals = self.lead_net(state_tensor)
+            # print(self.state.shape)
+            predicted_q_vals = self.lead_net(self.state)
             _, action = torch.max(predicted_q_vals, dim=1)
             action = int(action.item())
 
-        old_state = self.state.copy()
         # take the action
         self.state, reward, done, truncated, _ = self.env.step(action=action)
         # update the accumulated reward
         self.total_reward += reward
         # make sure the state is the correct shape for batches
         self.state = np.expand_dims(self.state, axis=0)
+        # make sure the state is saved as a tensor
+        self.state = torch.tensor(
+            self.state,
+            device=self.device,
+            dtype=torch.float
+        )
         self.experiences.add_memory(
             individual_experience(
-                starting_state=old_state,
-                resulting_state=self.state.copy(),
+                starting_state=old_state.detach(),
+                resulting_state=self.state.clone().detach(),
                 reward=float(reward),
                 action_take=action,
-                done=done
+                done=(done or truncated)
             )
-        )
-
-        # update exploration probability
-        self.current_exploration_prob = max(
-            self.exploration_prob_start - self.num_plays/self.exploration_prob_decay,
-            self.exploration_prob_end
         )
 
         if done or truncated:
             done_reward = self.total_reward
-            self.reset()
+            self._reset()
         return done_reward
     
     # batch is a list of individual_experiences
     def calc_loss(self, batch: list[individual_experience]):
-        starting_states = np.concat([e.starting_state for e in batch], axis=0)
-        starting_states = torch.from_numpy(starting_states).to(dtype=torch.float, device=self.device)
-        resulting_states = np.concat([e.resulting_state for e in batch], axis=0)
-        resulting_states = torch.from_numpy(resulting_states).to(dtype=torch.float, device=self.device)
+        starting_states, resulting_states, dones, actions, rewards = [], [], [], [], []
+        for e in batch:
+            starting_states.append(e.starting_state)
+            resulting_states.append(e.resulting_state)
+            dones.append(e.done)
+            actions.append(e.action_take)
+            rewards.append(e.reward)
+        starting_states = torch.concat(starting_states, dim=0)
+        resulting_states = torch.concat(resulting_states, dim=0)
+        actions = torch.tensor(actions, device=self.device)
         # list of booleans specifying whether the game was done after this experience
-        experience_done = [e.done for e in batch]
-        chosen_actions = [e.action_take for e in batch]
-        rewards = torch.tensor(
-            [e.reward for e in batch],
-            device=self.device,
-            dtype=torch.float
-        )
-        predicted_q_values = self.lead_net(starting_states)
-        chosen_q_values = predicted_q_values[torch.arange(len(chosen_actions)),chosen_actions]
+        rewards = torch.tensor(rewards, device=self.device, dtype=torch.float)
+        state_action_values = self.lead_net(starting_states).gather(
+            1, actions.unsqueeze(-1)
+        ).squeeze(-1)
+        #chosen_q_values = predicted_q_values[torch.arange(len(actions)), actions]
         # only an estimation of the actual q values, but apparantly it works
         with torch.no_grad():
-            next_state_predicted_values = self.stable_net(resulting_states).max(1)[0]
+            next_state_values = self.stable_net(resulting_states).max(1)[0]
             # this is guaranteed to be true beacuse the reward after done is 0
-            next_state_predicted_values[experience_done] = 0.0
-            next_state_predicted_values = next_state_predicted_values.detach()
+            next_state_values[dones] = 0.0
+            next_state_values = next_state_values.detach()
 
-        expected_q_values = rewards + next_state_predicted_values * self.bellman_discout
-        return self.loss_fn(chosen_q_values, expected_q_values)
+        expected_q_values = rewards + next_state_values * self.bellman_discout
+        return self.loss_fn(state_action_values, expected_q_values)
         
