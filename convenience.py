@@ -95,56 +95,41 @@ class Agent:
         )
         self.total_reward = 0.0
 
-    '''
-    def reset(self):
-        self.state, info = self.env.reset()
-        self.state = np.expand_dims(self.state, axis=0)
-        self.state = torch.tensor(
-            self.state,
-            device=self.device,
-            dtype=torch.float
-        )
-        self.total_reward = 0.0
-    '''
-
     @torch.no_grad()
     def play_step(self):
         done_reward = None
-        old_state = self.state.clone()
-
         # select the action
-        # print(self.current_exploration_prob)
         if np.random.random() < self.current_exploration_prob:
             action = self.env.action_space.sample()
         else:
-            # print(self.state.shape)
+            #print(self.state.shape)
             predicted_q_vals = self.lead_net(self.state)
             _, action = torch.max(predicted_q_vals, dim=1)
             action = int(action.item())
 
         # take the action
-        self.state, reward, done, truncated, _ = self.env.step(action=action)
+        new_state, reward, done, truncated, _ = self.env.step(action=action)
         # update the accumulated reward
         self.total_reward += reward
         # make sure the state is the correct shape for batches
-        self.state = np.expand_dims(self.state, axis=0)
+        new_state = np.expand_dims(new_state, axis=0)
         # make sure the state is saved as a tensor
-        self.state = torch.tensor(
-            self.state,
+        new_state = torch.tensor(
+            new_state,
             device=self.device,
             dtype=torch.float
         )
-        self.experiences.add_memory(
-            individual_experience(
-                starting_state=old_state.detach(),
-                resulting_state=self.state.clone().detach(),
+        exp = individual_experience(
+                starting_state=self.state.clone().detach(),
+                resulting_state=new_state.clone().detach(),
                 reward=float(reward),
                 action_take=action,
                 done=(done or truncated)
             )
-        )
-
+        self.experiences.add_memory(exp)
+        self.state = new_state.clone().detach()
         if done or truncated:
+            print(f"Done: {done}, Trunc: {truncated}")
             done_reward = self.total_reward
             self._reset()
         return done_reward
