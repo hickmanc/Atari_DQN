@@ -39,8 +39,11 @@ class experiences_holder:
         self.memories.append(new_memory)
 
     def sample_memory(self, num_samples):
-        num_samples = min(num_samples, len(self.memories))
-        return sample(self.memories, num_samples)
+        #num_samples = min(num_samples, len(self.memories))
+        #return sample(self.memories, num_samples)
+        indices = np.random.choice(len(self.memories), num_samples, replace=False)
+        return [self.memories[i] for i in indices]
+
     
     def get_num_experiences(self):
         return len(self.memories)

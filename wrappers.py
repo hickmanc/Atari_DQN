@@ -8,11 +8,11 @@ from collections import deque
 class Atari_img_to_torch(gym.ObservationWrapper):
     def __init__(self, env):
         super().__init__(env)
-        new_observation_shape = [
+        new_observation_shape = (
             self.observation_space.shape[-1],
             self.observation_space.shape[0],
             self.observation_space.shape[1]
-        ]
+        )
 
         self.observation_space = gym.spaces.Box(
             low=self.observation_space.low.min(),
@@ -28,7 +28,7 @@ class Atari_img_to_torch(gym.ObservationWrapper):
 # this will store multiple frames in a single observation
 class MultiFrame(gym.ObservationWrapper):
     def __init__(self, env, num_frames):
-        super().__init__(env)
+        super(MultiFrame, self).__init__(env)
         self.frames = deque(maxlen=num_frames)
         # update the observation space of the environment
         # to match our multi frame observations
