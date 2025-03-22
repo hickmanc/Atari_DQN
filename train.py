@@ -1,3 +1,4 @@
+from pathlib import Path
 import gymnasium as gym
 import numpy as np
 import torch
@@ -14,6 +15,7 @@ sync_interval = int(1e3)
 exploration_prob_decay = int(15e4)
 exploration_prob_start = 1.0
 exploration_prob_end = 0.01
+mean_reward_to_win = 19.0
 
 
 if __name__ == "__main__":
@@ -49,6 +51,9 @@ if __name__ == "__main__":
             total_rewards.append(reward)
             mean_reward = np.mean(total_rewards[-100:])
             print(f"{frames_played}: done {len(total_rewards)} games, reward {mean_reward:.3f}, eps {my_agent.current_exploration_prob:.2f}")
+            if mean_reward > mean_reward_to_win:
+                torch.save(my_agent.lead_net, Path("./winning_model.pt"))
+                break
 
         if my_agent.experiences.get_num_experiences() < max_experience_memory:
             continue
@@ -61,3 +66,4 @@ if __name__ == "__main__":
         loss = my_agent.calc_loss(random_experiences)
         loss.backward()
         my_agent.optimizer.step()
+    env.close()

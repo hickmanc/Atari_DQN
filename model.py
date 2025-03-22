@@ -24,7 +24,8 @@ class DQN(nn.Module):
         )
 
     def forward(self, observation_tensors: torch.ByteTensor):
-        observation_tensors = torch.tensor(observation_tensors, dtype=torch.float)
+        # observation_tensors = torch.tensor(observation_tensors, dtype=torch.float).clone().detach()
+        observation_tensors = observation_tensors / 255.0
         #observation_tensors /= 255.0
         result = self.convolutions(observation_tensors)
         return self.fully_connected_nn(result)

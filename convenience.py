@@ -86,9 +86,11 @@ class Agent:
             num_actions=self.env.action_space.n,
             num_frames=frames_per_experience
         ).to(device)
-        self._reset()
+        self.reset()
+        # only used for play_game.py
+        self.done = False
 
-    def _reset(self):
+    def reset(self):
         self.state, _ = self.env.reset()
         self.state = np.expand_dims(self.state, axis=0)
         self.state = torch.tensor(
@@ -132,9 +134,10 @@ class Agent:
         self.experiences.add_memory(exp)
         self.state = new_state.clone().detach()
         if done or truncated:
+            self.done = True
             print(f"Done: {done}, Trunc: {truncated}")
             done_reward = self.total_reward
-            self._reset()
+            self.reset()
         return done_reward
     
     # batch is a list of individual_experiences
