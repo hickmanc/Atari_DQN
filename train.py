@@ -4,12 +4,12 @@ import numpy as np
 import torch
 from convenience import create_env, Agent, individual_experience
 
-env_name = "PongNoFrameskip-v4"
+env_name = "BreakoutNoFrameskip-v4"
 device = "mps"
-frames_per_experience = 4
+frames_per_experience = 5
 gamma = 0.99
 batch_size = 32
-max_experience_memory = int(1e4)
+max_experience_memory = int(2e4)
 learning_rate = 1e-4
 sync_interval = int(1e3)
 exploration_prob_decay = int(15e4)
@@ -50,7 +50,8 @@ if __name__ == "__main__":
         if reward is not None:
             total_rewards.append(reward)
             mean_reward = np.mean(total_rewards[-100:])
-            print(f"{frames_played}: done {len(total_rewards)} games, reward {mean_reward:.3f}, eps {my_agent.current_exploration_prob:.2f}")
+            if len(total_rewards) % 15 == 0:
+                print(f"{frames_played}: done {len(total_rewards)} games, reward {mean_reward:.3f}, eps {my_agent.current_exploration_prob:.2f}")
             if mean_reward > mean_reward_to_win:
                 torch.save(my_agent.lead_net, Path("./winning_model.pt"))
                 break

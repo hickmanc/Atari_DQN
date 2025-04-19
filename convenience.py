@@ -75,17 +75,25 @@ class Agent:
         self.experiences = experiences_holder(
             max_num_experiences=max_experience_memory
         )
+        #self.lead_net = DQN(
+        #    num_actions=self.env.action_space.n,
+        #    num_frames=frames_per_experience
+        #).to(device)
         self.lead_net = DQN(
-            num_actions=self.env.action_space.n,
-            num_frames=frames_per_experience
-        ).to(device)
+            num_frames=frames_per_experience,
+            num_actions=self.env.action_space.n
+        ).to(self.device)
         self.optimizer = torch.optim.Adam(
             self.lead_net.parameters(), lr=self.learning_rate
         )
+        #self.stable_net = DQN(
+        #    num_actions=self.env.action_space.n,
+        #    num_frames=frames_per_experience
+        #).to(device)
         self.stable_net = DQN(
-            num_actions=self.env.action_space.n,
-            num_frames=frames_per_experience
-        ).to(device)
+            num_frames=frames_per_experience,
+            num_actions=self.env.action_space.n
+        ).to(self.device)
         self.reset()
         # only used for play_game.py
         self.done = False
@@ -135,7 +143,6 @@ class Agent:
         self.state = new_state.clone().detach()
         if done or truncated:
             self.done = True
-            print(f"Done: {done}, Trunc: {truncated}")
             done_reward = self.total_reward
             self.reset()
         return done_reward
