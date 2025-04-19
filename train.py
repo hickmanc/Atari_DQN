@@ -1,8 +1,7 @@
 from pathlib import Path
-import gymnasium as gym
 import numpy as np
 import torch
-from convenience import create_env, Agent, individual_experience
+from convenience import create_env, Agent
 
 env_name = "BreakoutNoFrameskip-v4"
 device = "mps"
