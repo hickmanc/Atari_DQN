@@ -41,8 +41,6 @@ class experiences_holder:
     def sample_memory(self, num_samples):
         num_samples = min(num_samples, len(self.memories))
         return sample(self.memories, num_samples)
-        #indices = np.random.choice(len(self.memories), num_samples, replace=False)
-        #return [self.memories[i] for i in indices]
 
     
     def get_num_experiences(self):
@@ -75,10 +73,7 @@ class Agent:
         self.experiences = experiences_holder(
             max_num_experiences=max_experience_memory
         )
-        #self.lead_net = DQN(
-        #    num_actions=self.env.action_space.n,
-        #    num_frames=frames_per_experience
-        #).to(device)
+
         self.lead_net = DQN(
             num_frames=frames_per_experience,
             num_actions=self.env.action_space.n
@@ -86,10 +81,7 @@ class Agent:
         self.optimizer = torch.optim.Adam(
             self.lead_net.parameters(), lr=self.learning_rate
         )
-        #self.stable_net = DQN(
-        #    num_actions=self.env.action_space.n,
-        #    num_frames=frames_per_experience
-        #).to(device)
+
         self.stable_net = DQN(
             num_frames=frames_per_experience,
             num_actions=self.env.action_space.n
@@ -164,7 +156,6 @@ class Agent:
         state_action_values = self.lead_net(starting_states).gather(
             1, actions.unsqueeze(-1)
         ).squeeze(-1)
-        #chosen_q_values = predicted_q_values[torch.arange(len(actions)), actions]
         # only an estimation of the actual q values, but apparantly it works
         with torch.no_grad():
             next_state_values = self.stable_net(resulting_states).max(1)[0]
